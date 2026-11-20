@@ -205,7 +205,7 @@ pub fn self_exe() -> Option<std::path::PathBuf> {
             return Some(p);
         }
     }
-    std::env::current_exe().ok()
+    std::env::current_exe().ok().map(|p| crate::platform::plain(&p))
 }
 
 pub fn is_root_user() -> bool {

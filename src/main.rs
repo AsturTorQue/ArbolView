@@ -43,6 +43,11 @@ const COL_KEYS: [(&str, SortKey); 9] = [
     ("col_perms", SortKey::Perms),
 ];
 
+/// Owner (7) and permissions (8) are Unix ideas: Windows doesn't show them.
+fn col_visible(i: usize) -> bool {
+    platform::HAS_POSIX_PERMS || i < 7
+}
+
 /// The comparer's state: two folders scanned on their own thread, then diffed.
 struct Compare {
     a: String,
@@ -342,7 +347,7 @@ impl App {
 
     fn start_scan(&mut self, path: PathBuf, ctx: &egui::Context) {
         self.prog.cancel.store(true, Ordering::Relaxed);
-        let path = std::fs::canonicalize(&path).unwrap_or(path);
+        let path = platform::canonical(&path);
         if self.root_path != path && !self.root.children.is_empty() {
             self.history.retain(|h| *h != self.root_path);
             self.history.push(self.root_path.clone());
@@ -756,7 +761,7 @@ impl App {
         if !self.scanning && self.prog.errors.load(Ordering::Relaxed) > 50 {
             return Some(self.tr("tip_root").into());
         }
-        if let Some(c) = self.root.children.iter().find(|c| &*c.name == ".cache") {
+        if let Some(c) = self.root.children.iter().find(|c| cfg!(target_os = "linux") && &*c.name == ".cache") {
             if c.size > 1 << 30 {
                 return Some(format!("{} ({})", self.tr("tip_cache"), format_size(c.size, Unit::Auto)));
             }
@@ -773,16 +778,27 @@ impl App {
         let mut select: Option<PathBuf> = None;
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing.x = 2.0;
+            // (label, folder) per step; a Windows drive "C:" and its root "\" are one step, C:\
+            let mut steps: Vec<(String, PathBuf)> = Vec::new();
             let mut acc = PathBuf::new();
-            let comps: Vec<String> = self.root_path.components().map(|c| c.as_os_str().to_string_lossy().into_owned()).collect();
-            for (i, c) in comps.iter().enumerate() {
+            for c in self.root_path.components() {
                 acc.push(c);
-                let last = i + 1 == comps.len();
-                let txt = egui::RichText::new(c.clone()).size(13.5).color(if last { pal.text } else { pal.weak });
-                if ui.add(egui::Button::new(if last { txt.strong() } else { txt }).frame(false)).clicked() && !last {
-                    rescan = Some(acc.clone());
+                match c {
+                    std::path::Component::RootDir if !steps.is_empty() => {
+                        if let Some(last) = steps.last_mut() {
+                            last.1 = acc.clone();
+                        }
+                    }
+                    _ => steps.push((c.as_os_str().to_string_lossy().into_owned(), acc.clone())),
                 }
-                if !last && c != "/" {
+            }
+            for (i, (label, path)) in steps.iter().enumerate() {
+                let last = i + 1 == steps.len();
+                let txt = egui::RichText::new(label.clone()).size(13.5).color(if last { pal.text } else { pal.weak });
+                if ui.add(egui::Button::new(if last { txt.strong() } else { txt }).frame(false)).clicked() && !last {
+                    rescan = Some(path.clone());
+                }
+                if !last && label != "/" {
                     ui.label(egui::RichText::new("›").color(pal.weak));
                 }
             }
@@ -853,7 +869,7 @@ impl App {
         let pal = self.pal();
         let rows = self.rows();
         let filtering = !self.filter.trim().is_empty() || self.filters.active();
-        let total_w: f32 = self.widths.iter().sum();
+        let total_w: f32 = self.widths.iter().enumerate().filter(|(i, _)| col_visible(*i)).map(|(_, w)| w).sum();
         let mut clicked: Option<(usize, bool, bool)> = None;
         let mut ctx_action: Option<(usize, &'static str)> = None;
         let mut sort_click: Option<SortKey> = None;
@@ -868,6 +884,9 @@ impl App {
                 ui.painter().hline(hrect.x_range(), hrect.bottom() - 0.5, Stroke::new(1.0, pal.grid));
                 let mut x = hrect.left();
                 for (i, (key, sk)) in COL_KEYS.iter().enumerate() {
+                    if !col_visible(i) {
+                        continue;
+                    }
                     let w = self.widths[i];
                     let r = Rect::from_min_size(pos2(x, hrect.top()), vec2(w, hrect.height()));
                     let resp = ui.interact(r.shrink2(vec2(4.0, 0.0)), ui.id().with(("hdr", i)), Sense::click());
@@ -962,17 +981,22 @@ impl App {
                         x += w5;
                         right(x, self.widths[6], format_time(row.mtime), pal.weak);
                         x += self.widths[6];
-                        right(x, self.widths[7], self.owner(row.uid), pal.weak);
-                        x += self.widths[7];
-                        let pr = Rect::from_min_size(pos2(x, rect.top()), vec2(self.widths[8], ROW_H));
-                        painter.with_clip_rect(pr).text(pos2(x + self.widths[8] - 10.0, cy), Align2::RIGHT_CENTER, fsinfo::perm_string(row.mode), FontId::monospace(12.0), pal.weak);
-                        let resp = resp.on_hover_text_at_pointer(format!(
-                            "{}  {:04o}  {}:{}",
-                            fsinfo::perm_string(row.mode),
-                            row.mode & 0o7777,
-                            self.owner(row.uid),
-                            self.groups.get(&row.gid).cloned().unwrap_or_else(|| row.gid.to_string())
-                        ));
+                        // owner and Unix permissions: Linux and macOS only
+                        let resp = if platform::HAS_POSIX_PERMS {
+                            right(x, self.widths[7], self.owner(row.uid), pal.weak);
+                            x += self.widths[7];
+                            let pr = Rect::from_min_size(pos2(x, rect.top()), vec2(self.widths[8], ROW_H));
+                            painter.with_clip_rect(pr).text(pos2(x + self.widths[8] - 10.0, cy), Align2::RIGHT_CENTER, fsinfo::perm_string(row.mode), FontId::monospace(12.0), pal.weak);
+                            resp.on_hover_text_at_pointer(format!(
+                                "{}  {:04o}  {}:{}",
+                                fsinfo::perm_string(row.mode),
+                                row.mode & 0o7777,
+                                self.owner(row.uid),
+                                self.groups.get(&row.gid).cloned().unwrap_or_else(|| row.gid.to_string())
+                            ))
+                        } else {
+                            resp
+                        };
 
                         if resp.clicked() || resp.double_clicked() {
                             let on_exp = resp.interact_pointer_pos().map(|p| exp_rect.expand(3.0).contains(p)).unwrap_or(false);
@@ -1078,17 +1102,31 @@ impl App {
             ui.label(egui::RichText::new(name).size(16.0).strong());
             let sel_path = self.selected.clone().unwrap_or_else(|| dir.clone());
             let shown = self.find(&sel_path).unwrap_or(n);
-            ui.horizontal_wrapped(|ui| {
-                ui.label(egui::RichText::new(fsinfo::perm_string(shown.mode)).monospace().color(pal.accent));
-                ui.label(egui::RichText::new(format!("({:04o})", shown.mode & 0o7777)).monospace().color(pal.weak));
-                ui.label(egui::RichText::new(format!(
-                    "· {} {} · {} {}",
-                    t(self.lang, "col_owner"),
-                    self.owner(shown.uid),
-                    t(self.lang, "group_w"),
-                    self.groups.get(&shown.gid).cloned().unwrap_or_else(|| shown.gid.to_string())
-                )).color(pal.weak).size(12.0));
-            });
+            if platform::HAS_POSIX_PERMS {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(egui::RichText::new(fsinfo::perm_string(shown.mode)).monospace().color(pal.accent));
+                    ui.label(egui::RichText::new(format!("({:04o})", shown.mode & 0o7777)).monospace().color(pal.weak));
+                    ui.label(egui::RichText::new(format!(
+                        "· {} {} · {} {}",
+                        t(self.lang, "col_owner"),
+                        self.owner(shown.uid),
+                        t(self.lang, "group_w"),
+                        self.groups.get(&shown.gid).cloned().unwrap_or_else(|| shown.gid.to_string())
+                    )).color(pal.weak).size(12.0));
+                });
+            } else {
+                // Windows: the attributes people know (read-only, hidden/system)
+                let mut attrs = Vec::new();
+                if shown.mode & 0o200 == 0 {
+                    attrs.push(t(self.lang, "attr_readonly"));
+                }
+                if shown.mode & 0o004 == 0 {
+                    attrs.push(t(self.lang, "attr_hidden"));
+                }
+                if !attrs.is_empty() {
+                    ui.label(egui::RichText::new(attrs.join(" · ")).color(pal.accent).size(12.0));
+                }
+            }
             if shown.is_link {
                 if let Ok(target) = std::fs::read_link(&sel_path) {
                     ui.label(egui::RichText::new(format!("{} {}", t(self.lang, "points_to"), target.display())).size(12.0).color(pal.weak));
@@ -1385,9 +1423,13 @@ impl App {
                 });
                 ui.separator();
                 ui.label(egui::RichText::new(t(self.lang, "scan_opts")).strong());
-                ui.checkbox(&mut self.opts.one_filesystem, t(self.lang, "opt_onefs"));
-                ui.checkbox(&mut self.opts.hardlinks_once, t(self.lang, "opt_hardlinks"));
-                ui.checkbox(&mut self.opts.skip_virtual, t(self.lang, "opt_virtual"));
+                // only what this system has: drive letters on Windows already keep
+                // disks apart, and it has neither /proc-like folders nor inode hard links here
+                if cfg!(unix) {
+                    ui.checkbox(&mut self.opts.one_filesystem, t(self.lang, "opt_onefs"));
+                    ui.checkbox(&mut self.opts.hardlinks_once, t(self.lang, "opt_hardlinks"));
+                    ui.checkbox(&mut self.opts.skip_virtual, t(self.lang, "opt_virtual"));
+                }
                 ui.add_space(4.0);
                 ui.label(egui::RichText::new(t(self.lang, "links_label")).strong());
                 let before = self.opts.skip_symlinks;
@@ -1406,7 +1448,7 @@ impl App {
                     }
                     ui.label(egui::RichText::new(t(self.lang, "run_root_hint")).size(11.0).color(pal.weak));
                 }
-                if ui.checkbox(&mut self.show_pseudo, t(self.lang, "opt_pseudo")).changed() {
+                if cfg!(unix) && ui.checkbox(&mut self.show_pseudo, t(self.lang, "opt_pseudo")).changed() {
                     self.mounts = fsinfo::mounts(self.show_pseudo);
                 }
                 ui.separator();
@@ -2281,7 +2323,7 @@ impl App {
                                     scan::DiffKind::OnlyB => format_size(r.size_b, unit),
                                     scan::DiffKind::Changed => format!("{} → {}", format_size(r.size_a, unit), format_size(r.size_b, unit)),
                                 };
-                                let perms = if r.kind == scan::DiffKind::Changed && (r.mode_a & 0o7777) != (r.mode_b & 0o7777) {
+                                let perms = if platform::HAS_POSIX_PERMS && r.kind == scan::DiffKind::Changed && (r.mode_a & 0o7777) != (r.mode_b & 0o7777) {
                                     format!("  {} → {}", fsinfo::perm_string(r.mode_a), fsinfo::perm_string(r.mode_b))
                                 } else {
                                     String::new()

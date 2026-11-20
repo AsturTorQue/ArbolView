@@ -96,7 +96,7 @@ fn expand(p: &str) -> PathBuf {
         p.to_string()
     };
     let pb = PathBuf::from(p);
-    std::fs::canonicalize(&pb).unwrap_or(pb)
+    crate::platform::canonical(&pb)
 }
 
 /// Run a command; returns the process exit code.

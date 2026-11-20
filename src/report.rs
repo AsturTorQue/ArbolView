@@ -194,17 +194,12 @@ pub fn text(r: &Report) -> String {
 pub fn csv_all(lang: Lang, root_path: &Path, root: &Node, owners: &HashMap<u32, String>) -> String {
     fn walk(n: &Node, p: &Path, out: &mut String, owners: &HashMap<u32, String>) {
         let q = p.to_string_lossy().replace('"', "\"\"");
-        out.push_str(&format!(
-            "\"{}\",{},{},{},{},{},{},{}\n",
-            q,
-            n.size,
-            n.alloc,
-            n.files,
-            n.folders,
-            format_time(n.mtime),
-            owners.get(&n.uid).cloned().unwrap_or_else(|| n.uid.to_string()),
-            crate::fsinfo::perm_string(n.mode)
-        ));
+        out.push_str(&format!("\"{}\",{},{},{},{},{}", q, n.size, n.alloc, n.files, n.folders, format_time(n.mtime)));
+        // owner and Unix permissions only where the system has them
+        if crate::platform::HAS_POSIX_PERMS {
+            out.push_str(&format!(",{},{}", owners.get(&n.uid).cloned().unwrap_or_else(|| n.uid.to_string()), crate::fsinfo::perm_string(n.mode)));
+        }
+        out.push('\n');
         for c in &n.children {
             if c.is_dir {
                 walk(c, &p.join(&*c.name), out, owners);
@@ -212,16 +207,18 @@ pub fn csv_all(lang: Lang, root_path: &Path, root: &Node, owners: &HashMap<u32, 
         }
     }
     let mut s = format!(
-        "{},{} (bytes),{} (bytes),{},{},{},{},{}\n",
+        "{},{} (bytes),{} (bytes),{},{},{}",
         t(lang, "path"),
         t(lang, "col_size"),
         t(lang, "col_alloc"),
         t(lang, "col_files"),
         t(lang, "col_folders"),
-        t(lang, "col_modified"),
-        t(lang, "col_owner"),
-        t(lang, "col_perms")
+        t(lang, "col_modified")
     );
+    if crate::platform::HAS_POSIX_PERMS {
+        s.push_str(&format!(",{},{}", t(lang, "col_owner"), t(lang, "col_perms")));
+    }
+    s.push('\n');
     walk(root, root_path, &mut s, owners);
     s
 }

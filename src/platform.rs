@@ -63,6 +63,45 @@ pub fn facts(m: &Metadata) -> Facts {
     Facts { dev: None, id: None, alloc, uid: 0, gid: 0, mode: kind | perm, nlink: 1, mtime }
 }
 
+/// Absolute, resolved path in the form people know. On Windows the system
+/// returns `\\?\C:\...` (and `\\?\UNC\server\share`); show `C:\...` and `\\server\share`.
+pub fn canonical(p: &Path) -> PathBuf {
+    let c = std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+    plain(&c)
+}
+
+/// Remove Windows' `\\?\` verbatim prefix from a path (unchanged elsewhere).
+pub fn plain(p: &Path) -> PathBuf {
+    if !cfg!(windows) {
+        return p.to_path_buf();
+    }
+    let s = p.to_string_lossy();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{rest}"))
+    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+        PathBuf::from(rest)
+    } else {
+        p.to_path_buf()
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn windows_paths_without_verbatim_prefix() {
+        assert_eq!(plain(Path::new(r"\\?\C:\Users\ana")), PathBuf::from(r"C:\Users\ana"));
+        assert_eq!(plain(Path::new(r"\\?\UNC\server\share\x")), PathBuf::from(r"\\server\share\x"));
+        assert_eq!(plain(Path::new(r"D:\datos")), PathBuf::from(r"D:\datos"));
+        let c = canonical(Path::new("."));
+        assert!(!c.to_string_lossy().starts_with(r"\\?\"), "{}", c.display());
+    }
+}
+
+/// Whether this system has Unix permissions and owners worth showing.
+pub const HAS_POSIX_PERMS: bool = cfg!(unix);
+
 pub fn home() -> PathBuf {
     dirs::home_dir().unwrap_or_else(|| PathBuf::from(if cfg!(windows) { "C:\\" } else { "/" }))
 }

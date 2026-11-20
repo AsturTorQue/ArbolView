@@ -1,5 +1,15 @@
 # Cambios
 
+## 0.3.4
+
+- **Windows**: las rutas se ven como `C:\...` (sin el prefijo `\\?\`) y la barra de ruta
+  muestra `C: › Usuarios › ...`.
+- **Windows**: sin columnas de dueño y permisos Unix; el panel indica «Solo lectura» u
+  «Oculto» cuando aplica. El CSV tampoco las incluye.
+- **Cada sistema con su vocabulario**: «administrador» en Windows y «root» en Linux; los
+  ajustes solo muestran lo que existe en ese sistema (nada de /proc ni tmpfs en Windows;
+  volúmenes y memoria virtual en macOS); papelera de reciclaje, disco del sistema, etc.
+
 ## 0.3.3
 
 - **Windows**: la ventana se dibuja con Direct3D 12 (o Vulkan) en lugar de OpenGL, que falta

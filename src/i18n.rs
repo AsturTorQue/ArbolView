@@ -270,14 +270,52 @@ const T: &[(&str, [&str; 4])] = &[
     ("start_fail", ["ÁrbolView no pudo abrir su ventana. Suele deberse a los controladores de la tarjeta gráfica: actualízalos (web del fabricante o Windows Update) y vuelve a probar.", "ÁrbolView could not open its window. This is usually the graphics drivers: update them (manufacturer's site or Windows Update) and try again.", "O ÁrbolView não conseguiu abrir a janela. Normalmente são os drivers da placa gráfica: atualize-os (site do fabricante ou Windows Update) e tente de novo.", "ÁrbolView n’a pas pu ouvrir sa fenêtre. C’est souvent le pilote graphique : mettez-le à jour (site du fabricant ou Windows Update) puis réessayez."]),
     ("crashed", ["ÁrbolView se ha cerrado por un error inesperado.", "ÁrbolView closed because of an unexpected error.", "O ÁrbolView fechou devido a um erro inesperado.", "ÁrbolView s’est fermé à cause d’une erreur inattendue."]),
     ("crash_saved", ["Detalles guardados en:", "Details saved in:", "Detalhes guardados em:", "Détails enregistrés dans :"]),
+    ("attr_readonly", ["Solo lectura", "Read-only", "Somente leitura", "Lecture seule"]),
+    ("attr_hidden", ["Oculto o de sistema", "Hidden or system", "Oculto ou de sistema", "Caché ou système"]),
     ("about", ["ÁrbolView muestra qué carpetas ocupan tu disco.", "ÁrbolView shows which folders fill your disk.", "ÁrbolView mostra quais pastas ocupam o seu disco.", "ÁrbolView montre quels dossiers remplissent votre disque."]),
 ];
 
-pub fn t(lang: Lang, key: &str) -> &'static str {
-    for (k, v) in T {
-        if *k == key {
-            return v[lang.idx()];
-        }
-    }
-    "?"
+fn lookup(table: &[(&str, [&'static str; 4])], lang: Lang, key: &str) -> Option<&'static str> {
+    table.iter().find(|(k, _)| *k == key).map(|(_, v)| v[lang.idx()])
 }
+
+/// Text in the person's language, in the words of the system it runs on
+/// (Windows says "administrator" where Linux says "root", and so on).
+pub fn t(lang: Lang, key: &str) -> &'static str {
+    let system: &[(&str, [&'static str; 4])] = if cfg!(windows) {
+        WINDOWS
+    } else if cfg!(target_os = "macos") {
+        MACOS
+    } else {
+        &[]
+    };
+    lookup(system, lang, key).or_else(|| lookup(T, lang, key)).unwrap_or("?")
+}
+
+/// Windows wording.
+const WINDOWS: &[(&str, [&str; 4])] = &[
+    ("run_root", ["Abrir como administrador", "Open as administrator", "Abrir como administrador", "Ouvrir en administrateur"]),
+    ("run_root_hint", ["Ve todas las carpetas, sin «sin acceso». Windows pedirá permiso.", "Sees every folder, with no “no access”. Windows asks for permission.", "Vê todas as pastas, sem «sem acesso». O Windows pede permissão.", "Voit tous les dossiers, sans « sans accès ». Windows demande l’autorisation."]),
+    ("admin", ["ADMINISTRADOR", "ADMINISTRATOR", "ADMINISTRADOR", "ADMINISTRATEUR"]),
+    ("root_opening", ["Se abrirá otra ventana como administrador.", "Another window will open as administrator.", "Outra janela vai abrir como administrador.", "Une autre fenêtre va s’ouvrir en administrateur."]),
+    ("tip_root", ["Para ver todas las carpetas sin «sin acceso», ábrelo como administrador (botón del escudo).", "To see every folder without “no access”, open it as administrator (shield button).", "Para ver todas as pastas sem «sem acesso», abra como administrador (botão do escudo).", "Pour tout voir sans « sans accès », ouvrez-le en administrateur (bouton bouclier)."]),
+    ("mon_root_note", ["En modo administrador la tarea queda a nombre del administrador.", "In administrator mode the task belongs to the administrator.", "No modo administrador a tarefa fica em nome do administrador.", "En mode administrateur, la tâche appartient à l’administrateur."]),
+    ("needs_root", ["pide permiso de administrador", "asks for administrator rights", "pede permissão de administrador", "demande les droits administrateur"]),
+    ("root", ["Disco del sistema", "System drive", "Disco do sistema", "Disque système"]),
+    ("links_label", ["Enlaces simbólicos y uniones", "Symbolic links and junctions", "Links simbólicos e junções", "Liens symboliques et jonctions"]),
+    ("cl_trash", ["Vaciar la papelera de reciclaje", "Empty the Recycle Bin", "Esvaziar a lixeira", "Vider la corbeille"]),
+    ("trash", ["Enviar a la papelera de reciclaje", "Move to Recycle Bin", "Mover para a lixeira", "Mettre à la corbeille"]),
+    ("tip_cache", ["La carpeta de temporales suele ocupar mucho y se puede vaciar sin peligro.", "The temporary folder is often big and safe to empty.", "A pasta temporária costuma ocupar muito e pode ser esvaziada com segurança.", "Le dossier temporaire est souvent volumineux et peut être vidé sans risque."]),
+];
+
+/// macOS wording.
+const MACOS: &[(&str, [&str; 4])] = &[
+    ("opt_virtual", ["Saltar /dev y la memoria virtual del sistema", "Skip /dev and the system’s virtual memory", "Pular /dev e a memória virtual do sistema", "Ignorer /dev et la mémoire virtuelle du système"]),
+    ("opt_pseudo", ["Mostrar volúmenes internos del sistema", "Show the system’s internal volumes", "Mostrar volumes internos do sistema", "Afficher les volumes internes du système"]),
+    ("opt_onefs", ["No entrar en otros volúmenes", "Stay on one volume", "Não entrar em outros volumes", "Rester sur un seul volume"]),
+    ("disks", ["VOLÚMENES", "VOLUMES", "VOLUMES", "VOLUMES"]),
+    ("tab_disks", ["Volúmenes", "Volumes", "Volumes", "Volumes"]),
+    ("root", ["Disco de arranque", "Startup disk", "Disco de arranque", "Disque de démarrage"]),
+    ("cl_trash", ["Vaciar la Papelera", "Empty the Trash", "Esvaziar o Lixo", "Vider la Corbeille"]),
+    ("tip_cache", ["~/Library/Caches suele ocupar mucho y se puede vaciar sin peligro.", "~/Library/Caches is often big and safe to empty.", "~/Library/Caches costuma ocupar muito e pode ser esvaziada com segurança.", "~/Library/Caches est souvent volumineux et peut être vidé sans risque."]),
+];
