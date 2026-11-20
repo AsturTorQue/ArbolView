@@ -35,7 +35,8 @@ jobs:
         with: { name: windows, path: dist/*.zip, if-no-files-found: error }
 
   macos:
-    runs-on: macos-14
+    # always the current Apple Silicon image (fixed versions get retired)
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

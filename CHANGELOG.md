@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.3.1
+
+- Publicación automática: la compilación de macOS usa la máquina actual de GitHub
+  (la anterior se había retirado y bloqueaba la publicación de la versión).
+
 ## 0.3.0
 
 - Linux, Windows y macOS (Intel y Apple Silicon) con un mismo código.
