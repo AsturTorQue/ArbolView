@@ -15,9 +15,11 @@ cada versión:
 
 | Sistema | Archivo | Cómo abrirlo |
 |---|---|---|
-| Linux | `ArbolView-<versión>-x86_64.AppImage` | `chmod +x ArbolView-*.AppImage` y doble clic |
-| Windows | `ArbolView-<versión>-windows-x64.zip` | Descomprimir y abrir `ArbolView.exe` (no se instala) |
-| macOS | `ArbolView-<versión>-macOS.dmg` | Arrastrar ÁrbolView a Aplicaciones. La primera vez: clic derecho ▸ Abrir |
+| Linux Intel/AMD | `ArbolView-<versión>-x86_64.AppImage` | `chmod +x ArbolView-*.AppImage` y doble clic |
+| Linux ARM (Raspberry Pi 4/5…) | `ArbolView-<versión>-aarch64.AppImage` | igual |
+| Windows Intel/AMD | `ArbolView-<versión>-windows-x64.zip` | Descomprimir y abrir `ArbolView.exe` (no se instala) |
+| Windows ARM (Snapdragon, Surface…) | `ArbolView-<versión>-windows-arm64.zip` | igual |
+| macOS Apple Silicon e Intel | `ArbolView-<versión>-macOS.dmg` (universal) | Arrastrar ÁrbolView a Aplicaciones. La primera vez: clic derecho ▸ Abrir |
 
 > En macOS la app no está firmada por Apple, por eso la primera vez hay que abrirla con
 > clic derecho ▸ Abrir (o en Ajustes ▸ Privacidad y seguridad ▸ «Abrir igualmente»).

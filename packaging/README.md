@@ -4,8 +4,8 @@ One program for Linux, Windows and macOS. Each system builds its own package:
 
 | System  | Package                                   | How |
 |---------|-------------------------------------------|-----|
-| Linux   | `dist/ArbolView-<ver>-x86_64.AppImage`     | `sh packaging/build-appimage.sh` (needs `mksquashfs`) |
-| Windows | `dist/ArbolView-<ver>-windows-x64.zip`     | `powershell -File packaging\build-windows.ps1` on Windows with Rust |
+| Linux   | `dist/ArbolView-<ver>-x86_64.AppImage` / `-aarch64.AppImage` | `sh packaging/build-appimage.sh` on that kind of machine (needs `mksquashfs`) |
+| Windows | `dist/ArbolView-<ver>-windows-x64.zip` / `-arm64.zip` | `powershell -File packaging\build-windows.ps1 [-Arch arm64]` on Windows with Rust |
 | macOS   | `dist/ArbolView-<ver>-macOS.dmg` (universal) | `sh packaging/build-macos.sh` on a Mac with Rust and both Apple targets |
 
 Or let GitHub build all three: put this `app/` folder in a repository (as its root) and run

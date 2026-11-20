@@ -1,13 +1,18 @@
 #!/bin/sh
-# Build ArbolView-<version>-x86_64.AppImage in app/dist/.
-# Needs: cargo, mksquashfs, and the AppImage type-2 runtime (downloaded once
-# into packaging/ when missing, or pass RUNTIME=/path/to/runtime-x86_64).
+# Build ArbolView-<version>-<arch>.AppImage in app/dist/ for this machine
+# (x86_64 or aarch64). Needs: cargo, mksquashfs, and the AppImage type-2
+# runtime (downloaded once into packaging/ when missing, or pass RUNTIME=...).
 set -eu
 
 APP_DIR=$(cd "$(dirname "$0")/.." && pwd)
 cd "$APP_DIR"
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
-ARCH=x86_64
+# x86_64 or aarch64 (64-bit ARM): the machine's own unless ARCH is set
+ARCH=${ARCH:-$(uname -m)}
+case "$ARCH" in
+    arm64) ARCH=aarch64 ;;
+    amd64) ARCH=x86_64 ;;
+esac
 OUT="dist/ArbolView-$VERSION-$ARCH.AppImage"
 RUNTIME=${RUNTIME:-packaging/runtime-$ARCH}
 RUNTIME_URL="https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-$ARCH"

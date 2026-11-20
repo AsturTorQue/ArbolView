@@ -1,5 +1,10 @@
 # Cambios
 
+## 0.3.2
+
+- Nuevos paquetes para **Linux ARM64** (AppImage aarch64) y **Windows ARM64** (zip).
+- macOS sigue en un único `.dmg` universal: Apple Silicon e Intel.
+
 ## 0.3.1
 
 - Publicación automática: la compilación de macOS usa la máquina actual de GitHub
