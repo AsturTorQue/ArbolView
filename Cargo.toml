@@ -1,0 +1,46 @@
+[package]
+name = "arbolview"
+version = "0.3.0"
+edition = "2021"
+description = "ÁrbolView: see which folders fill your disks (Linux, Windows, macOS)"
+authors = ["AsturTorQue"]
+license = "MIT"
+repository = "https://github.com/AsturTorQue/ArbolView"
+readme = "README.md"
+keywords = ["disk", "usage", "treemap", "gui", "cleanup"]
+categories = ["command-line-utilities", "filesystem"]
+
+[[bin]]
+name = "arbolview"
+path = "src/main.rs"
+
+[dependencies]
+eframe = "0.31"
+egui = "0.31"
+image = { version = "0.25", default-features = false, features = ["png"] }
+libc = "0.2"
+dirs = "6"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[target.'cfg(not(target_os = "linux"))'.dependencies]
+trash = "5"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+egui-winit = { version = "0.31", default-features = false }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Console",
+    "Win32_UI_Shell",
+] }
+
+[build-dependencies]
+winresource = "0.1"
+
+[profile.release]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1

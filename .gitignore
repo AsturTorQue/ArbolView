@@ -1,0 +1,18 @@
+# build output
+/target/
+/dist/
+
+# local test pictures and the downloaded AppImage runtime
+/shots/
+/packaging/runtime-*
+
+# notes used only while building the app with Craft Anything
+/MECHANICS.md
+/mechanics.json
+
+# editors and systems
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

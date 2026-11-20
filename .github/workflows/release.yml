@@ -1,0 +1,63 @@
+# Builds ÁrbolView for Linux (AppImage), Windows (zip with the .exe) and macOS
+# (universal .dmg) on GitHub's machines. Push a tag such as v0.3.0 to publish
+# the three files as a release, or run it by hand from the Actions tab to just
+# download them as artifacts.
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get update && sudo apt-get install -y squashfs-tools
+      - run: sh packaging/build-appimage.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: linux, path: dist/*.AppImage, if-no-files-found: error }
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: powershell -ExecutionPolicy Bypass -File packaging/build-windows.ps1
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: dist/*.zip, if-no-files-found: error }
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: "aarch64-apple-darwin,x86_64-apple-darwin" }
+      - uses: Swatinem/rust-cache@v2
+      - run: sh packaging/build-macos.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: macos, path: dist/*.dmg, if-no-files-found: error }
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          generate_release_notes: true
+          body: |
+            **Descargas / Downloads**
+            - Linux: `ArbolView-*-x86_64.AppImage` (chmod +x y abrir)
+            - Windows: `ArbolView-*-windows-x64.zip` (descomprimir y abrir `ArbolView.exe`)
+            - macOS: `ArbolView-*-macOS.dmg` (primera vez: clic derecho ▸ Abrir)
