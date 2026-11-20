@@ -25,6 +25,15 @@ cada versión:
 > clic derecho ▸ Abrir (o en Ajustes ▸ Privacidad y seguridad ▸ «Abrir igualmente»).
 > En Windows SmartScreen puede avisar: «Más información» ▸ «Ejecutar de todas formas».
 
+### Si no abre
+
+- La app muestra un aviso con el motivo y guarda los detalles en `crash.log`:
+  Windows `%APPDATA%\arbolview\crash.log`, Linux `~/.local/share/arbolview/crash.log`,
+  macOS `~/Library/Application Support/arbolview/crash.log`.
+- Casi siempre son los controladores gráficos: actualízalos.
+- Para forzar el modo de dibujo: variable `ARBOLVIEW_RENDERER=glow` (OpenGL) o
+  `ARBOLVIEW_RENDERER=wgpu` (Direct3D/Vulkan/Metal).
+
 ## Qué hace
 
 - **Árbol de carpetas** ordenado por tamaño, con tamaño real en disco, archivos, carpetas,

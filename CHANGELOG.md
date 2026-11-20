@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.3.3
+
+- **Windows**: la ventana se dibuja con Direct3D 12 (o Vulkan) en lugar de OpenGL, que falta
+  en muchos equipos y hacía que el `.exe` no abriera. Si aun así falla, se reabre sola con
+  OpenGL.
+- Si la app no puede arrancar o se cierra por un error, muestra un aviso con el motivo y
+  guarda los detalles en `crash.log` (en Windows: `%APPDATA%\arbolview\crash.log`).
+
 ## 0.3.2
 
 - Nuevos paquetes para **Linux ARM64** (AppImage aarch64) y **Windows ARM64** (zip).

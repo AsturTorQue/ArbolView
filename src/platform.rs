@@ -189,6 +189,25 @@ pub fn elevate(exe: &Path, args: &[String], extra_env: &[(String, String)]) -> R
     }
 }
 
+/// Tell the person something went wrong when there's no console to read it:
+/// a message box on Windows, standard error elsewhere.
+pub fn error_dialog(title: &str, text: &str) {
+    #[cfg(windows)]
+    unsafe {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+        let t: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
+        let m: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
+        MessageBoxW(std::ptr::null_mut(), m.as_ptr(), t.as_ptr(), MB_OK | MB_ICONERROR);
+    }
+    #[cfg(not(windows))]
+    eprintln!("{title}: {text}");
+}
+
+/// Where a crash report is written: <data folder>/arbolview/crash.log.
+pub fn crash_log() -> PathBuf {
+    data_dir().join("arbolview").join("crash.log")
+}
+
 /// Windows GUI programs have no console; a command typed in one should still print there.
 pub fn attach_parent_console() {
     #[cfg(windows)]

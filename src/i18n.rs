@@ -267,6 +267,9 @@ const T: &[(&str, [&str; 4])] = &[
     ("mon_fail", ["No se pudo programar (¿hay systemd de usuario?)", "Could not schedule (is there a systemd user session?)", "Não foi possível programar (há sessão systemd de usuário?)", "Programmation impossible (session systemd utilisateur ?)"]),
     ("mon_all", ["Carpetas programadas", "Scheduled folders", "Pastas programadas", "Dossiers programmés"]),
     ("mon_root_note", ["En modo root se programa para root.", "In root mode it is scheduled for root.", "No modo root é programado para root.", "En mode root, la programmation est pour root."]),
+    ("start_fail", ["ÁrbolView no pudo abrir su ventana. Suele deberse a los controladores de la tarjeta gráfica: actualízalos (web del fabricante o Windows Update) y vuelve a probar.", "ÁrbolView could not open its window. This is usually the graphics drivers: update them (manufacturer's site or Windows Update) and try again.", "O ÁrbolView não conseguiu abrir a janela. Normalmente são os drivers da placa gráfica: atualize-os (site do fabricante ou Windows Update) e tente de novo.", "ÁrbolView n’a pas pu ouvrir sa fenêtre. C’est souvent le pilote graphique : mettez-le à jour (site du fabricant ou Windows Update) puis réessayez."]),
+    ("crashed", ["ÁrbolView se ha cerrado por un error inesperado.", "ÁrbolView closed because of an unexpected error.", "O ÁrbolView fechou devido a um erro inesperado.", "ÁrbolView s’est fermé à cause d’une erreur inattendue."]),
+    ("crash_saved", ["Detalles guardados en:", "Details saved in:", "Detalhes guardados em:", "Détails enregistrés dans :"]),
     ("about", ["ÁrbolView muestra qué carpetas ocupan tu disco.", "ÁrbolView shows which folders fill your disk.", "ÁrbolView mostra quais pastas ocupam o seu disco.", "ÁrbolView montre quels dossiers remplissent votre disque."]),
 ];
 

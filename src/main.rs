@@ -2510,6 +2510,7 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        DRAWN.store(true, Ordering::Relaxed);
         self.poll();
         if self.scanning {
             ctx.request_repaint_after(Duration::from_millis(150));
@@ -2630,6 +2631,70 @@ fn open_terminal(p: &Path) {
     platform::open_terminal(p);
 }
 
+/// Set once the first frame is drawn: a failure before that is a start-up
+/// (graphics) problem, after it an ordinary crash.
+static DRAWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn renderer_choice() -> &'static str {
+    match std::env::var("ARBOLVIEW_RENDERER").as_deref() {
+        Ok("glow") | Ok("opengl") => "glow",
+        Ok("wgpu") | Ok("dx12") | Ok("vulkan") => "wgpu",
+        _ if cfg!(windows) => "wgpu",
+        _ => "glow",
+    }
+}
+
+/// Start this program again with the OpenGL renderer (one window loop per
+/// process, so a second try needs a new process). Returns whether it started.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn relaunch_with_glow(first_error: &str) -> bool {
+    if renderer_choice() != "wgpu" || std::env::var_os("ARBOLVIEW_FIRST_ERROR").is_some() {
+        return false;
+    }
+    let Ok(exe) = std::env::current_exe() else { return false };
+    std::process::Command::new(exe)
+        .args(std::env::args().skip(1))
+        .env("ARBOLVIEW_RENDERER", "glow")
+        .env("ARBOLVIEW_FIRST_ERROR", first_error)
+        .spawn()
+        .is_ok()
+}
+
+fn write_crash_log(text: &str) -> PathBuf {
+    let p = platform::crash_log();
+    if let Some(d) = p.parent() {
+        let _ = std::fs::create_dir_all(d);
+    }
+    let stamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+    let body = format!(
+        "ÁrbolView {} — {stamp}\n{} {} · renderer {}\n\n{text}\n",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        renderer_choice()
+    );
+    let _ = std::fs::write(&p, body);
+    p
+}
+
+/// A panic shows a message (there's no console on Windows) and leaves a crash
+/// log; before the first frame on Windows it first retries with OpenGL.
+fn install_crash_handler() {
+    let default = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        default(info);
+        let what = format!("{info}\n\n{}", std::backtrace::Backtrace::force_capture());
+        let started = DRAWN.load(Ordering::Relaxed);
+        if cfg!(windows) && !started && relaunch_with_glow(&info.to_string()) {
+            std::process::exit(0);
+        }
+        let log = write_crash_log(&what);
+        let lang = Lang::from_env();
+        let head = if started { t(lang, "crashed") } else { t(lang, "start_fail") };
+        platform::error_dialog(APP_NAME, &format!("{head}\n\n{info}\n\n{} {}", t(lang, "crash_saved"), log.display()));
+    }));
+}
+
 fn main() -> eframe::Result<()> {
     // command-line automation: `arbolview scan|history|schedule|help ...` never opens a window
     let all: Vec<String> = std::env::args().skip(1).collect();
@@ -2666,6 +2731,7 @@ fn main() -> eframe::Result<()> {
         }
     }
     let start = start.unwrap_or_else(home);
+    install_crash_handler();
     if screenshot.is_none() {
         icon::install_desktop_entry();
     }
@@ -2691,5 +2757,23 @@ fn main() -> eframe::Result<()> {
             b.with_activate_ignoring_other_apps(false);
         }));
     }
-    eframe::run_native(APP_NAME, options, Box::new(move |cc| Ok(Box::new(App::new(cc, start, screenshot)))))
+    #[cfg(windows)]
+    {
+        options.renderer = if renderer_choice() == "wgpu" { eframe::Renderer::Wgpu } else { eframe::Renderer::Glow };
+    }
+    let res = eframe::run_native(APP_NAME, options, Box::new(move |cc| Ok(Box::new(App::new(cc, start, screenshot)))));
+    if let Err(e) = &res {
+        let err = e.to_string();
+        if cfg!(windows) && relaunch_with_glow(&err) {
+            return Ok(());
+        }
+        let mut what = err.clone();
+        if let Ok(first) = std::env::var("ARBOLVIEW_FIRST_ERROR") {
+            what = format!("Direct3D/wgpu: {first}\nOpenGL: {err}");
+        }
+        let log = write_crash_log(&what);
+        let lang = Lang::from_env();
+        platform::error_dialog(APP_NAME, &format!("{}\n\n{what}\n\n{} {}", t(lang, "start_fail"), t(lang, "crash_saved"), log.display()));
+    }
+    res
 }

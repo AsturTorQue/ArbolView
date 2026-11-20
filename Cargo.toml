@@ -1,6 +1,6 @@
 [package]
 name = "arbolview"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 description = "ÁrbolView: see which folders fill your disks (Linux, Windows, macOS)"
 authors = ["AsturTorQue"]
@@ -29,11 +29,17 @@ trash = "5"
 egui-winit = { version = "0.31", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
+# Windows draws with Direct3D 12 through wgpu (OpenGL drivers are often missing
+# there); OpenGL stays as the fallback.
+eframe = { version = "0.31", features = ["wgpu"] }
+# the version egui-wgpu 0.31 uses; turns on the Direct3D 12 backend (Vulkan alone isn't everywhere)
+wgpu = { version = "24", default-features = false, features = ["dx12", "wgsl"] }
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
     "Win32_System_Console",
     "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
 ] }
 
 [build-dependencies]
