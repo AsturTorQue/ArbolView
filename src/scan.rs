@@ -245,7 +245,7 @@ fn run(root: &Path, opts: ScanOptions, prog: &Progress, tx: &Sender<ScanMsg>, ui
 }
 
 fn scan_entry(path: &Path, ctx: &mut Ctx) -> Option<Node> {
-    let name = path.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| path.display().to_string());
+    let name = crate::platform::nice(&path.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| path.display().to_string()));
     let meta = match fs::symlink_metadata(path) {
         Ok(m) => m,
         Err(_) => {
@@ -316,7 +316,7 @@ fn scan_entry(path: &Path, ctx: &mut Ctx) -> Option<Node> {
         if size > 0 && !ft.is_symlink() {
             let min = ctx.top.peek().map(|r| r.0 .0).unwrap_or(0);
             if ctx.top.len() < TOP_FILES || size > min {
-                ctx.top.push(Reverse((size, path.to_path_buf(), alloc, f.mtime)));
+                ctx.top.push(Reverse((size, crate::platform::plain(path), alloc, f.mtime)));
                 if ctx.top.len() > TOP_FILES {
                     ctx.top.pop();
                 }

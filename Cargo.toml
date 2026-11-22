@@ -1,6 +1,6 @@
 [package]
 name = "arbolview"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2021"
 description = "ÁrbolView: see which folders fill your disks (Linux, Windows, macOS)"
 authors = ["AsturTorQue"]
@@ -27,6 +27,9 @@ trash = "5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 egui-winit = { version = "0.31", default-features = false }
+# macOS hands out names as letter + combining accent (NFD); the UI font draws
+# that accent as a box, so names are joined into single letters (NFC) for display
+unicode-normalization = "0.1"
 
 [target.'cfg(windows)'.dependencies]
 # Windows draws with Direct3D 12 through wgpu (OpenGL drivers are often missing

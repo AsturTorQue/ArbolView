@@ -70,8 +70,32 @@ pub fn canonical(p: &Path) -> PathBuf {
     plain(&c)
 }
 
-/// Remove Windows' `\\?\` verbatim prefix from a path (unchanged elsewhere).
+/// Text as people read it. macOS gives names in decomposed form ("A" followed by a
+/// combining accent), which the interface font shows as "A□"; join them (NFC).
+/// macOS file systems match either form, so the joined names still open the same
+/// files. Linux and Windows are left exactly as they are (Linux names are bytes).
+#[cfg(target_os = "macos")]
+pub fn nice(s: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    if s.is_ascii() {
+        s.to_string()
+    } else {
+        s.nfc().collect()
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn nice(s: &str) -> String {
+    s.to_string()
+}
+
+/// Remove Windows' `\\?\` verbatim prefix from a path; on macOS join decomposed
+/// accents (see [`nice`]); unchanged on Linux.
 pub fn plain(p: &Path) -> PathBuf {
+    if cfg!(target_os = "macos") {
+        let s = p.to_string_lossy();
+        return if s.is_ascii() { p.to_path_buf() } else { PathBuf::from(nice(&s)) };
+    }
     if !cfg!(windows) {
         return p.to_path_buf();
     }
@@ -82,6 +106,24 @@ pub fn plain(p: &Path) -> PathBuf {
         PathBuf::from(rest)
     } else {
         p.to_path_buf()
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    use super::*;
+
+    #[test]
+    fn decomposed_accents_are_joined() {
+        // "A" + combining acute (as macOS stores it) becomes the single letter "Á"
+        let nfd = "A\u{301}rbolView";
+        assert_eq!(nice(nfd), "\u{c1}rbolView");
+        assert_eq!(plain(Path::new("/Users/ana/Fotos de Mari\u{301}a")), PathBuf::from("/Users/ana/Fotos de Mar\u{ed}a"));
+        // the joined name still opens the same folder on macOS
+        let d = std::env::temp_dir().join("arbolview-nfd-A\u{301}rbol");
+        let _ = std::fs::create_dir_all(&d);
+        assert!(plain(&d).is_dir());
+        let _ = std::fs::remove_dir_all(&d);
     }
 }
 
@@ -103,7 +145,7 @@ mod tests {
 pub const HAS_POSIX_PERMS: bool = cfg!(unix);
 
 pub fn home() -> PathBuf {
-    dirs::home_dir().unwrap_or_else(|| PathBuf::from(if cfg!(windows) { "C:\\" } else { "/" }))
+    plain(&dirs::home_dir().unwrap_or_else(|| PathBuf::from(if cfg!(windows) { "C:\\" } else { "/" })))
 }
 
 /// Per-user data folder: ~/.local/share, ~/Library/Application Support or %APPDATA%.
@@ -131,11 +173,11 @@ pub fn system_root() -> PathBuf {
 }
 
 pub fn documents() -> Option<PathBuf> {
-    dirs::document_dir().filter(|p| p.is_dir())
+    dirs::document_dir().filter(|p| p.is_dir()).map(|p| plain(&p))
 }
 
 pub fn downloads() -> Option<PathBuf> {
-    dirs::download_dir().filter(|p| p.is_dir())
+    dirs::download_dir().filter(|p| p.is_dir()).map(|p| plain(&p))
 }
 
 /// Open a folder or file with the system's default program.
@@ -291,7 +333,7 @@ pub fn raw_mounts() -> Vec<(String, String, String, String)> {
         let mut buf: Vec<libc::statfs> = vec![std::mem::zeroed(); n as usize];
         let got = libc::getfsstat(buf.as_mut_ptr(), (buf.len() * std::mem::size_of::<libc::statfs>()) as libc::c_int, libc::MNT_NOWAIT);
         for s in buf.iter().take(got.max(0) as usize) {
-            let cs = |a: &[libc::c_char]| std::ffi::CStr::from_ptr(a.as_ptr()).to_string_lossy().into_owned();
+            let cs = |a: &[libc::c_char]| nice(&std::ffi::CStr::from_ptr(a.as_ptr()).to_string_lossy());
             let ro = if s.f_flags & libc::MNT_RDONLY as u32 != 0 { "ro" } else { "rw" };
             out.push((cs(&s.f_mntfromname), cs(&s.f_mntonname), cs(&s.f_fstypename), ro.to_string()));
         }
@@ -336,7 +378,7 @@ pub fn current_user() -> Option<(u32, String)> {
         if pw.is_null() {
             return None;
         }
-        Some((uid, std::ffi::CStr::from_ptr((*pw).pw_name).to_string_lossy().into_owned()))
+        Some((uid, nice(&std::ffi::CStr::from_ptr((*pw).pw_name).to_string_lossy())))
     }
 }
 

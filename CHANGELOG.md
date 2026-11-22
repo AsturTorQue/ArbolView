@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.3.5
+
+- **macOS**: las letras con acento (Á, é, ñ…) ya no salen como «A□». macOS entrega los
+  nombres con el acento separado de la letra; ahora se unen antes de mostrarlos en
+  archivos, carpetas, rutas, volúmenes (incluido el disco del instalador) y usuarios.
+
 ## 0.3.4
 
 - **Windows**: las rutas se ven como `C:\...` (sin el prefijo `\\?\`) y la barra de ruta

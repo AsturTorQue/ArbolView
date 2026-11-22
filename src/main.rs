@@ -951,7 +951,7 @@ impl App {
                             nm.push_str(&format!("  · {}", t(self.lang, "other_fs")));
                         } else if row.is_link {
                             if let Ok(target) = std::fs::read_link(&row.path) {
-                                nm.push_str(&format!("  → {}", target.display()));
+                                nm.push_str(&format!("  → {}", platform::plain(&target).display()));
                             }
                         }
                         let font = if row.depth == 0 && !filtering { FontId::proportional(13.5) } else { FontId::proportional(13.0) };
@@ -1129,7 +1129,7 @@ impl App {
             }
             if shown.is_link {
                 if let Ok(target) = std::fs::read_link(&sel_path) {
-                    ui.label(egui::RichText::new(format!("{} {}", t(self.lang, "points_to"), target.display())).size(12.0).color(pal.weak));
+                    ui.label(egui::RichText::new(format!("{} {}", t(self.lang, "points_to"), platform::plain(&target).display())).size(12.0).color(pal.weak));
                 }
             }
             ui.add_space(4.0);
@@ -2414,7 +2414,7 @@ impl App {
                             .unwrap_or_default();
                         dirs.sort();
                         for d in dirs {
-                            let n = d.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+                            let n = platform::nice(&d.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default());
                             let r = ui.selectable_label(false, n);
                             if r.double_clicked() {
                                 scan_it = Some(d.clone());
